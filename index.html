@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>PSR KPI Track Report</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root {
+  --bg: #eef2f7;
+  --card: #ffffff;
+  --primary: #1e3a5f;
+  --primary-light: #2b5299;
+  --accent: #e8f0fe;
+  --green: #16a34a;
+  --red: #dc2626;
+  --yellow: #d97706;
+  --border: #d1dbe8;
+  --text: #1a202c;
+  --subtext: #64748b;
+  --shadow: 0 2px 16px rgba(30,58,95,0.10);
+  --header-bg: linear-gradient(135deg, #1e3a5f 0%, #2b5299 100%);
+  color-scheme: light;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f172a;
+    --card: #1e293b;
+    --accent: #1e3a5f;
+    --border: #334155;
+    --text: #f1f5f9;
+    --subtext: #94a3b8;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Arial, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+
+/* ─── HEADER ─── */
+.app-header {
+  background: var(--header-bg);
+  color: #fff;
+  padding: 18px 24px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  box-shadow: 0 3px 12px rgba(30,58,95,0.25);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  top: env(safe-area-inset-top, 0px);
+}
+.app-header h1 { font-size: 1.1rem; font-weight: 700; letter-spacing: 0.3px; }
+.app-header .sub { font-size: 0.78rem; opacity: 0.8; margin-top: 2px; }
+.header-date { font-size: 0.82rem; background: rgba(255,255,255,0.18); border-radius: 8px; padding: 5px 12px; }
+
+/* ─── TABS ─── */
+.tabs {
+  display: flex;
+  background: var(--card);
+  border-bottom: 2px solid var(--border);
+  padding: 0 20px;
+  gap: 4px;
+  overflow-x: auto;
+}
+.tab-btn {
+  padding: 11px 18px;
+  border: none;
+  background: none;
+  color: var(--subtext);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  white-space: nowrap;
+  transition: color 0.15s;
+}
+.tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+.tab-btn:hover:not(.active) { color: var(--text); }
+
+/* ─── CONTENT ─── */
+.content { padding: 20px; max-width: 1100px; margin: 0 auto; }
+.tab-pane { display: none; }
+.tab-pane.active { display: block; }
+
+/* ─── UPLOAD ZONE ─── */
+.upload-section { display: flex; flex-direction: column; gap: 16px; }
+.upload-box {
+  border: 2.5px dashed var(--border);
+  border-radius: 14px;
+  background: var(--card);
+  padding: 40px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  position: relative;
+}
+.upload-box:hover, .upload-box.drag { border-color: var(--primary); background: var(--accent); }
+.upload-box input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.upload-icon { font-size: 2.5rem; margin-bottom: 10px; }
+.upload-box h3 { font-size: 1rem; margin-bottom: 6px; }
+.upload-box p { font-size: 0.82rem; color: var(--subtext); }
+.btn-primary {
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 22px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background 0.15s;
+}
+.btn-primary:hover { background: var(--primary-light); }
+.btn-danger { background: #dc2626; }
+.btn-danger:hover { background: #b91c1c; }
+
+/* ─── KPI CARDS ─── */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px;
+  margin-bottom: 22px;
+}
+.kpi-card {
+  background: var(--card);
+  border-radius: 12px;
+  padding: 16px 18px;
+  box-shadow: var(--shadow);
+  border-left: 4px solid var(--primary);
+}
+.kpi-card.green { border-left-color: #16a34a; }
+.kpi-card.red { border-left-color: #dc2626; }
+.kpi-card .lbl { font-size: 0.7rem; color: var(--subtext); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+.kpi-card .val { font-size: 1.55rem; font-weight: 700; color: var(--primary); line-height: 1; }
+.kpi-card.green .val { color: #16a34a; }
+.kpi-card.red .val { color: #dc2626; }
+.kpi-card .hint { font-size: 0.73rem; color: var(--subtext); margin-top: 4px; }
+
+/* ─── TABLE ─── */
+.section-label {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--primary);
+  border-left: 3px solid var(--primary);
+  padding-left: 10px;
+  margin-bottom: 12px;
+}
+.table-wrap { background: var(--card); border-radius: 12px; box-shadow: var(--shadow); overflow: hidden; margin-bottom: 20px; overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 0.81rem; min-width: 580px; }
+thead tr { background: #1e3a5f; color: #fff; }
+thead th { padding: 11px 13px; text-align: left; font-weight: 600; white-space: nowrap; font-size: 0.77rem; letter-spacing: 0.2px; }
+tbody tr:nth-child(even) { background: #f8fafc; }
+tbody tr:hover { background: var(--accent); }
+tbody td { padding: 10px 13px; border-bottom: 1px solid var(--border); }
+.total-row { font-weight: 700 !important; background: #e8f0fe !important; }
+.badge {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+.bg { background: #dcfce7; color: #15803d; }
+.by { background: #fef9c3; color: #a16207; }
+.br { background: #fee2e2; color: #b91c1c; }
+.be { background: #dbeafe; color: #1d4ed8; }
+
+/* ─── IMAGE GALLERY ─── */
+.img-upload-row { display: flex; gap: 12px; flex-wrap: wrap; align-items: stretch; margin-bottom: 16px; }
+.img-upload-box {
+  flex: 1; min-width: 220px;
+  border: 2.5px dashed var(--border);
+  border-radius: 12px;
+  background: var(--card);
+  padding: 28px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  position: relative;
+}
+.img-upload-box:hover { border-color: var(--primary); background: var(--accent); }
+.img-upload-box input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.img-upload-box .icon { font-size: 2rem; margin-bottom: 8px; }
+.img-upload-box p { font-size: 0.8rem; color: var(--subtext); }
+
+.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+.gallery-item {
+  background: var(--card);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  position: relative;
+}
+.gallery-item img { width: 100%; height: 170px; object-fit: cover; display: block; }
+.gallery-item .caption {
+  padding: 10px 12px 8px;
+  font-size: 0.78rem;
+  color: var(--subtext);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.del-btn {
+  background: #fee2e2;
+  color: #dc2626;
+  border: none;
+  border-radius: 5px;
+  padding: 3px 8px;
+  font-size: 0.72rem;
+  cursor: pointer;
+  font-weight: 700;
+}
+.del-btn:hover { background: #fca5a5; }
+.empty-state { text-align: center; padding: 40px 20px; color: var(--subtext); font-size: 0.88rem; }
+.empty-state .ei { font-size: 2.5rem; margin-bottom: 10px; }
+
+/* ─── STATUS BAR ─── */
+.status-bar {
+  background: #dcfce7;
+  color: #15803d;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 0.83rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.status-bar.warn { background: #fef9c3; color: #a16207; }
+.status-bar.err { background: #fee2e2; color: #dc2626; }
+
+/* ─── LEGEND ─── */
+.legend { background: var(--card); border-radius: 10px; padding: 14px 18px; box-shadow: var(--shadow); }
+.legend h4 { font-size: 0.82rem; color: var(--subtext); margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+.legend-items { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.78rem; }
+
+@media (max-width: 600px) {
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+  .content { padding: 14px; }
+  .tabs { padding: 0 10px; }
+}
+</style>
+</head>
+<body>
+
+<div class="app-header">
+  <div>
+    <h1>📊 PSR Daily KPI Track Report</h1>
+    <div class="sub" id="headerSub">No file loaded — upload Excel to begin</div>
+  </div>
+  <div class="header-date" id="headerDate">—</div>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('upload')">📂 Upload Excel</button>
+  <button class="tab-btn" onclick="switchTab('track')">📋 Track Report</button>
+  <button class="tab-btn" onclick="switchTab('images')">🖼️ Images</button>
+</div>
+
+<div class="content">
+
+  <!-- ── TAB 1: UPLOAD ── -->
+  <div class="tab-pane active" id="tab-upload">
+    <div class="upload-section">
+      <div class="upload-box" id="dropZone">
+        <input type="file" id="xlsxInput" accept=".xlsx,.xls" onchange="handleExcel(this)">
+        <div class="upload-icon">📊</div>
+        <h3>Excel File Upload Karein</h3>
+        <p>Daily_KPI.xlsx ya koi bhi KPI file yahan drop karein<br>ya click karein</p>
+      </div>
+      <div id="uploadStatus" style="display:none"></div>
+      <div id="previewBox" style="display:none">
+        <div class="section-label">Preview — KPI Sheet Data</div>
+        <div class="table-wrap">
+          <table id="previewTable"></table>
+        </div>
+        <button class="btn-primary" onclick="applyToReport()">✅ Report Apply Karein</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB 2: TRACK REPORT ── -->
+  <div class="tab-pane" id="tab-track">
+    <div id="noDataMsg" class="empty-state">
+      <div class="ei">📂</div>
+      <p>Pehle <strong>Upload Excel</strong> tab se KPI file upload karein</p>
+    </div>
+    <div id="reportArea" style="display:none">
+      <div class="kpi-grid" id="kpiCards"></div>
+      <div class="section-label">PSR Wise KPI Track</div>
+      <div class="table-wrap">
+        <table id="psrTable">
+          <thead>
+            <tr>
+              <th>PJP ID</th>
+              <th>PJP Name</th>
+              <th>PSR Name</th>
+              <th>Call Comp %</th>
+              <th>Strike Rate</th>
+              <th>Avg SKU/Order</th>
+              <th>Performance</th>
+            </tr>
+          </thead>
+          <tbody id="psrBody"></tbody>
+        </table>
+      </div>
+      <div class="section-label">SDM Summary</div>
+      <div class="table-wrap">
+        <table id="sdmTable">
+          <thead>
+            <tr>
+              <th>SDM Name</th>
+              <th>Call Comp %</th>
+              <th>Strike Rate</th>
+              <th>Avg SKU/Order</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody id="sdmBody"></tbody>
+        </table>
+      </div>
+      <div class="legend">
+        <h4>Performance Guide</h4>
+        <div class="legend-items">
+          <span><span class="badge be">Excellent</span> ≥ 80%</span>
+          <span><span class="badge bg">Good</span> 60–79%</span>
+          <span><span class="badge by">Average</span> 40–59%</span>
+          <span><span class="badge br">Low</span> &lt; 40%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── TAB 3: IMAGES ── -->
+  <div class="tab-pane" id="tab-images">
+    <div class="img-upload-row">
+      <div class="img-upload-box">
+        <input type="file" id="imgInput" accept="image/*" multiple onchange="handleImages(this)">
+        <div class="icon">🖼️</div>
+        <p>Images upload karein<br>(JPG, PNG, GIF)</p>
+      </div>
+    </div>
+    <div id="imgStatus" style="display:none; margin-bottom:14px;"></div>
+    <div id="galleryEmpty" class="empty-state">
+      <div class="ei">🖼️</div>
+      <p>Koi image upload nahi ki abhi tak</p>
+    </div>
+    <div class="gallery" id="imageGallery" style="display:none"></div>
+  </div>
+
+</div>
+
+<script>
+// ── DATA STORE ──
+const state = {
+  psrRows: [],
+  sdmRows: [],
+  totalRow: null,
+  reportDate: '',
+  reportName: '',
+  images: []   // {name, dataUrl}
+};
+
+// ── TABS ──
+function switchTab(name) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+
+// ── DRAG & DROP ──
+const dz = document.getElementById('dropZone');
+['dragover','dragenter'].forEach(e => dz.addEventListener(e, ev => { ev.preventDefault(); dz.classList.add('drag'); }));
+['dragleave','drop'].forEach(e => dz.addEventListener(e, () => dz.classList.remove('drag')));
+dz.addEventListener('drop', ev => {
+  ev.preventDefault();
+  const file = ev.dataTransfer.files[0];
+  if (file) processExcel(file);
+});
+
+function handleExcel(input) {
+  if (input.files[0]) processExcel(input.files[0]);
+}
+
+function processExcel(file) {
+  const st = document.getElementById('uploadStatus');
+  st.style.display = 'block';
+  st.innerHTML = '<div class="status-bar warn">⏳ File parh raha hoon...</div>';
+  document.getElementById('previewBox').style.display = 'none';
+
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const wb = XLSX.read(e.target.result, { type: 'array', cellDates: true });
+
+      // ── Find KPI sheet ──
+      const kpiSheet = wb.SheetNames.find(n => n.toLowerCase().includes('kpi')) || wb.SheetNames[0];
+      const ws = wb.Sheets[kpiSheet];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+      // ── Find header row ──
+      let headerIdx = -1;
+      for (let i = 0; i < Math.min(rows.length, 15); i++) {
+        const r = rows[i];
+        if (r.some(c => String(c).includes('PJP ID') || String(c).includes('CALL COMPLETION'))) {
+          headerIdx = i;
+          break;
+        }
+      }
+
+      if (headerIdx === -1) {
+        // Try Track sheet
+        const trackSheet = wb.SheetNames.find(n => n.toLowerCase().includes('track'));
+        if (trackSheet) {
+          parseTrackSheet(wb.Sheets[trackSheet], wb);
+        } else {
+          st.innerHTML = '<div class="status-bar err">❌ KPI ya Track sheet nahi mili!</div>';
+        }
+        return;
+      }
+
+      const headers = rows[headerIdx];
+      const dataRows = rows.slice(headerIdx + 1);
+
+      // ── Find column indices ──
+      const ci = name => headers.findIndex(h => String(h).toUpperCase().includes(name.toUpperCase()));
+      const COL = {
+        pjpId: ci('PJP ID'),
+        pjpName: ci('PJP NAME') !== -1 ? ci('PJP NAME') : ci('PJP NAM'),
+        psr: ci('PSR'),
+        cc: ci('CALL COMPLETION'),
+        sr: ci('STRIKE RATE'),
+        sku: ci('AVG. SKU')
+      };
+
+      // ── Extract title/date from first rows ──
+      for (let i = 0; i < headerIdx; i++) {
+        const r = rows[i];
+        const line = r.join(' ');
+        if (line.includes('Munir') || line.includes('MEHAR') || line.includes('Brother')) {
+          state.reportName = r.find(c => c && String(c).length > 5 && !String(c).includes('00')) || 'KPI Report';
+        }
+        r.forEach(c => {
+          if (c instanceof Date) state.reportDate = c.toLocaleDateString('en-GB');
+          if (typeof c === 'string' && c.match(/\d{2}\/\d{2}\/\d{4}/)) state.reportDate = c;
+          if (typeof c === 'number' && c > 40000 && c < 60000) {
+            const d = XLSX.SSF.parse_date_code(c);
+            if (d) state.reportDate = `${String(d.d).padStart(2,'0')}/${String(d.m).padStart(2,'0')}/${d.y}`;
+          }
+        });
+      }
+
+      // ── Build PSR rows ──
+      state.psrRows = [];
+      state.totalRow = null;
+      for (const row of dataRows) {
+        const pjpId = row[COL.pjpId];
+        const pjpName = row[COL.pjpName];
+        const psr = row[COL.psr];
+        const cc = parseFloat(row[COL.cc]) || 0;
+        const sr = parseFloat(row[COL.sr]) || 0;
+        const sku = parseFloat(row[COL.sku]) || 0;
+        if (String(psr).toLowerCase().includes('total') || String(pjpName).toLowerCase().includes('total')) {
+          state.totalRow = { cc, sr, sku };
+        } else if (pjpId && pjpName && psr && (cc > 0 || sr > 0)) {
+          state.psrRows.push({ pjpId, pjpName, psr, cc, sr, sku });
+        }
+        if (state.psrRows.length > 50) break;
+      }
+
+      // ── Try Track sheet for SDM ──
+      const trackSheet = wb.SheetNames.find(n => n.toLowerCase().includes('track'));
+      state.sdmRows = [];
+      if (trackSheet) {
+        const tw = wb.Sheets[trackSheet];
+        const trows = XLSX.utils.sheet_to_json(tw, { header: 1, defval: '' });
+        for (let i = 0; i < trows.length - 1; i++) {
+          const r = trows[i];
+          const label = String(r[1] || r[0] || '');
+          if (label.includes('SDM') || label.includes('sdm')) {
+            // Next rows are SDM data
+            for (let j = i + 1; j < Math.min(i + 10, trows.length); j++) {
+              const dr = trows[j];
+              const name = String(dr[1] || '').trim();
+              const cc2 = parseFloat(dr[4]);
+              const sr2 = parseFloat(dr[5]);
+              const sku2 = parseFloat(dr[6]);
+              if (name && !isNaN(cc2)) state.sdmRows.push({ name, cc: cc2, sr: sr2, sku: sku2 });
+            }
+            break;
+          }
+        }
+      }
+
+      // ── Show preview ──
+      showPreview(headers, dataRows.slice(0, 8), COL, file.name);
+      st.innerHTML = `<div class="status-bar">✅ File load ho gayi: <strong>${file.name}</strong> · ${state.psrRows.length} PSRs mili</div>`;
+
+    } catch (err) {
+      st.innerHTML = `<div class="status-bar err">❌ Error: ${err.message}</div>`;
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function parseTrackSheet(ws, wb) {
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+  state.psrRows = [];
+  for (const r of rows) {
+    const pjpId = r[1]; const pjpName = r[2]; const psr = r[3];
+    const cc = parseFloat(r[4]); const sr = parseFloat(r[5]); const sku = parseFloat(r[6]);
+    if (String(pjpId).toLowerCase().includes('total') || String(pjpName || '').toLowerCase().includes('total')) {
+      state.totalRow = { cc, sr, sku };
+    } else if (pjpId && psr && !isNaN(cc)) {
+      state.psrRows.push({ pjpId, pjpName, psr, cc, sr, sku });
+    }
+  }
+  document.getElementById('uploadStatus').innerHTML = `<div class="status-bar">✅ Track sheet se ${state.psrRows.length} PSRs mili</div>`;
+  document.getElementById('previewBox').style.display = 'none';
+  applyToReport();
+}
+
+function showPreview(headers, rows, COL, fname) {
+  const box = document.getElementById('previewBox');
+  const t = document.getElementById('previewTable');
+  const cols = [COL.pjpId, COL.pjpName, COL.psr, COL.cc, COL.sr, COL.sku].filter(c => c >= 0);
+  const colNames = cols.map(c => headers[c] || '');
+  let html = '<thead><tr>' + colNames.map(n => `<th>${n}</th>`).join('') + '</tr></thead><tbody>';
+  for (const r of rows.slice(0,6)) {
+    const vals = cols.map(c => r[c]);
+    if (vals.every(v => !v)) continue;
+    html += '<tr>' + vals.map(v => {
+      if (typeof v === 'number' && v < 2 && v > 0) return `<td>${(v*100).toFixed(1)}%</td>`;
+      return `<td>${v ?? ''}</td>`;
+    }).join('') + '</tr>';
+  }
+  html += '</tbody>';
+  t.innerHTML = html;
+  box.style.display = 'block';
+}
+
+function badge(cc) {
+  if (cc >= 0.8) return '<span class="badge be">Excellent</span>';
+  if (cc >= 0.6) return '<span class="badge bg">Good</span>';
+  if (cc >= 0.4) return '<span class="badge by">Average</span>';
+  return '<span class="badge br">Low</span>';
+}
+
+function applyToReport() {
+  if (!state.psrRows.length) {
+    alert('Koi PSR data nahi mili!');
+    return;
+  }
+
+  // ── KPI Cards ──
+  const total = state.totalRow || {};
+  const avgCC = total.cc || (state.psrRows.reduce((s,r)=>s+r.cc,0)/state.psrRows.length);
+  const avgSR = total.sr || (state.psrRows.reduce((s,r)=>s+r.sr,0)/state.psrRows.length);
+  const avgSKU = total.sku || (state.psrRows.reduce((s,r)=>s+r.sku,0)/state.psrRows.length);
+  const topPSR = [...state.psrRows].sort((a,b)=>b.cc-a.cc)[0];
+  const lowPSR = [...state.psrRows].sort((a,b)=>a.cc-b.cc)[0];
+
+  document.getElementById('kpiCards').innerHTML = `
+    <div class="kpi-card"><div class="lbl">Total PSRs</div><div class="val">${state.psrRows.length}</div><div class="hint">Active PSRs</div></div>
+    <div class="kpi-card"><div class="lbl">Avg Call Comp</div><div class="val">${(avgCC*100).toFixed(1)}%</div><div class="hint">Average</div></div>
+    <div class="kpi-card"><div class="lbl">Avg Strike Rate</div><div class="val">${(avgSR*100).toFixed(1)}%</div><div class="hint">Average</div></div>
+    <div class="kpi-card"><div class="lbl">Avg SKU/Order</div><div class="val">${avgSKU.toFixed(1)}</div><div class="hint">Average</div></div>
+    <div class="kpi-card green"><div class="lbl">Top Performer</div><div class="val" style="font-size:1rem">${topPSR.psr.split('-').pop().trim().split(' ').slice(0,2).join(' ')}</div><div class="hint">${(topPSR.cc*100).toFixed(0)}% CC</div></div>
+    <div class="kpi-card red"><div class="lbl">Needs Attention</div><div class="val" style="font-size:1rem">${lowPSR.psr.split('-').pop().trim().split(' ').slice(0,2).join(' ')}</div><div class="hint">${(lowPSR.cc*100).toFixed(0)}% CC</div></div>
+  `;
+
+  // ── PSR Table ──
+  let pBody = '';
+  for (const r of state.psrRows) {
+    pBody += `<tr>
+      <td>${r.pjpId}</td>
+      <td>${r.pjpName}</td>
+      <td>${r.psr}</td>
+      <td>${(r.cc*100).toFixed(1)}%</td>
+      <td>${(r.sr*100).toFixed(1)}%</td>
+      <td>${r.sku.toFixed(1)}</td>
+      <td>${badge(r.cc)}</td>
+    </tr>`;
+  }
+  if (state.totalRow) {
+    pBody += `<tr class="total-row">
+      <td colspan="2">Total / Avg</td><td>—</td>
+      <td>${(state.totalRow.cc*100).toFixed(1)}%</td>
+      <td>${(state.totalRow.sr*100).toFixed(1)}%</td>
+      <td>${state.totalRow.sku.toFixed(1)}</td>
+      <td>—</td>
+    </tr>`;
+  }
+  document.getElementById('psrBody').innerHTML = pBody;
+
+  // ── SDM Table ──
+  let sBody = '';
+  for (const r of state.sdmRows) {
+    sBody += `<tr>
+      <td>${r.name}</td>
+      <td>${(r.cc*100).toFixed(1)}%</td>
+      <td>${(r.sr*100).toFixed(1)}%</td>
+      <td>${r.sku.toFixed(1)}</td>
+      <td>${badge(r.cc)}</td>
+    </tr>`;
+  }
+  if (!sBody) sBody = '<tr><td colspan="5" style="text-align:center; color:#94a3b8; padding:16px;">SDM data nahi mili</td></tr>';
+  document.getElementById('sdmBody').innerHTML = sBody;
+
+  // ── Header ──
+  document.getElementById('headerSub').textContent = state.reportName || 'KPI Track Report';
+  document.getElementById('headerDate').textContent = state.reportDate ? `📅 ${state.reportDate}` : '—';
+
+  document.getElementById('noDataMsg').style.display = 'none';
+  document.getElementById('reportArea').style.display = 'block';
+
+  // ── Switch to Track tab ──
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-track').classList.add('active');
+  document.querySelectorAll('.tab-btn')[1].classList.add('active');
+}
+
+// ── IMAGE UPLOAD ──
+function handleImages(input) {
+  const files = Array.from(input.files);
+  if (!files.length) return;
+
+  const st = document.getElementById('imgStatus');
+  st.style.display = 'block';
+  st.innerHTML = '<div class="status-bar warn">⏳ Images load ho rahi hain...</div>';
+
+  let loaded = 0;
+  for (const file of files) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      state.images.push({ name: file.name, dataUrl: e.target.result });
+      loaded++;
+      if (loaded === files.length) {
+        renderGallery();
+        st.innerHTML = `<div class="status-bar">✅ ${files.length} image(s) upload ho gayi</div>`;
+      }
+    };
+    reader.readAsDataURL(file);
+  }
+  input.value = '';
+}
+
+function renderGallery() {
+  const gallery = document.getElementById('imageGallery');
+  const empty = document.getElementById('galleryEmpty');
+  if (!state.images.length) {
+    gallery.style.display = 'none';
+    empty.style.display = 'block';
+    return;
+  }
+  gallery.style.display = 'grid';
+  empty.style.display = 'none';
+  gallery.innerHTML = state.images.map((img, i) => `
+    <div class="gallery-item">
+      <img src="${img.dataUrl}" alt="${img.name}" onclick="openImg(${i})">
+      <div class="caption">
+        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:130px" title="${img.name}">${img.name}</span>
+        <button class="del-btn" onclick="deleteImg(${i})">🗑</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function deleteImg(idx) {
+  state.images.splice(idx, 1);
+  renderGallery();
+}
+
+function openImg(idx) {
+  const ov = document.createElement('div');
+  ov.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:9999;display:flex;align-items:center;justify-content:center;cursor:zoom-out';
+  ov.onclick = () => document.body.removeChild(ov);
+  const img = document.createElement('img');
+  img.src = state.images[idx].dataUrl;
+  img.style.cssText = 'max-width:92vw;max-height:88vh;border-radius:10px;box-shadow:0 8px 40px rgba(0,0,0,0.6)';
+  ov.appendChild(img);
+  document.body.appendChild(ov);
+}
+
+// ── Load default data immediately ──
+(function loadDefault() {
+  state.psrRows = [
+    { pjpId:1691, pjpName:'AALABAD', psr:'101041 - Anas Iqbal', cc:0.535714, sr:0.428571, sku:6.2 },
+    { pjpId:1694, pjpName:'G.T ROAD', psr:'10075 - Sharjeel Arshad', cc:0.305556, sr:0.25, sku:5.3 },
+    { pjpId:1693, pjpName:'Circular Road', psr:'8070 - Najaf Ali', cc:0.8125, sr:0.65625, sku:6.4 },
+    { pjpId:1696, pjpName:'BHATIKY', psr:'7030 - Muhammad Usman', cc:0.529412, sr:0.352941, sku:7.1 },
+    { pjpId:1695, pjpName:'MAIN BAZAAR', psr:'5556 - Umer Farooq', cc:0.733333, sr:0.633333, sku:5.9 },
+    { pjpId:1983, pjpName:'DASKA ROAD', psr:'2124 - Waqas Mukhtar', cc:0.655172, sr:0.517241, sku:7.0 },
+    { pjpId:1697, pjpName:'Sialkot', psr:'1694 - Nouman Butt', cc:0.84, sr:0.84, sku:7.0 },
+  ];
+  state.sdmRows = [
+    { name:'Aqeel Ahmad', cc:0.5952, sr:0.473131, sku:6.175 },
+    { name:'Muhammad Hassan', cc:0.676962, sr:0.595271, sku:6.733 },
+  ];
+  state.totalRow = { cc:0.630241, sr:0.525477, sku:6.414 };
+  state.reportDate = '13/10/2026';
+  state.reportName = 'Mehar Munir Brother · R102 - Gujrat';
+  applyToReport();
+  // Switch back to upload tab initially
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-upload').classList.add('active');
+  document.querySelectorAll('.tab-btn')[0].classList.add('active');
+})();
+</script>
+</body>
+</html>
